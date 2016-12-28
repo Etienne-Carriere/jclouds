@@ -22,6 +22,7 @@ import static org.jclouds.openstack.v2_0.ServiceType.OBJECT_STORE;
 import static org.jclouds.openstack.v2_0.reference.AuthHeaders.AUTH_TOKEN;
 import static org.jclouds.rest.config.BinderUtils.bindHttpApi;
 
+
 import java.io.Closeable;
 import java.net.URI;
 import java.util.Date;
@@ -31,7 +32,6 @@ import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
-import javax.ws.rs.HeaderParam;
 
 import org.jclouds.ContextBuilder;
 import org.jclouds.domain.Credentials;
@@ -44,9 +44,11 @@ import org.jclouds.openstack.keystone.v2_0.domain.Endpoint;
 import org.jclouds.openstack.keystone.v2_0.domain.Service;
 import org.jclouds.openstack.keystone.v2_0.domain.Token;
 import org.jclouds.openstack.keystone.v2_0.domain.User;
+import org.jclouds.openstack.swift.v1.binders.TempAuthBinder;
 import org.jclouds.rest.AuthorizationException;
 import org.jclouds.rest.InvocationContext;
 import org.jclouds.rest.annotations.ApiVersion;
+import org.jclouds.rest.annotations.BinderParam;
 import org.jclouds.rest.annotations.ResponseParser;
 import org.jclouds.rest.annotations.VirtualHost;
 
@@ -62,8 +64,17 @@ import com.google.inject.name.Named;
  * in {@code auth/v1.0/}.
  */
 public final class SwiftAuthenticationModule extends KeystoneAuthenticationModule {
-   private static final String STORAGE_USER = "X-Storage-User";
-   private static final String STORAGE_PASS = "X-Storage-Pass";
+   public static final String TEMP_AUTH_HEADER_USER = "jclouds.swift.tempAuth.headerUser";
+   public static final String TEMP_AUTH_HEADER_PASS = "jclouds.swift.tempAuth.headerPass";
+
+   @com.google.inject.Inject(optional = true)
+   @Named(TEMP_AUTH_HEADER_USER)
+   private static String identityHeaderNameUser = "X-Storage-User";
+
+   @com.google.inject.Inject(optional = true)
+   @Named(TEMP_AUTH_HEADER_PASS)
+   private static String identityHeaderNamePass = "X-Storage-Pass";
+
    private static final String STORAGE_URL = "X-Storage-Url";
 
    @Override
@@ -71,12 +82,21 @@ public final class SwiftAuthenticationModule extends KeystoneAuthenticationModul
       super.configure();
       bindHttpApi(binder(), AuthenticationApi.class);
       bindHttpApi(binder(), TempAuthApi.class);
+      requestStaticInjection(SwiftAuthenticationModule.class);
    }
 
    @Override protected Map<String, Function<Credentials, Access>> authenticationMethods(Injector i) {
       return ImmutableMap.<String, Function<Credentials, Access>>builder()
                          .putAll(super.authenticationMethods(i))
                          .put("tempAuthCredentials", i.getInstance(TempAuth.class)).build();
+   }
+   
+   public static String getIdentityHeaderName(){
+       return identityHeaderNameUser;
+   }
+
+   public static String getIdentityHeaderPass(){
+       return identityHeaderNamePass;
    }
 
    static final class TempAuth implements Function<Credentials, Access> {
@@ -87,7 +107,7 @@ public final class SwiftAuthenticationModule extends KeystoneAuthenticationModul
       }
 
       @Override public Access apply(Credentials input) {
-         return delegate.auth(input.identity, input.credential);
+         return delegate.auth(input);
       }
    }
 
@@ -98,7 +118,7 @@ public final class SwiftAuthenticationModule extends KeystoneAuthenticationModul
       @GET
       @Consumes
       @ResponseParser(AdaptTempAuthResponseToAccess.class)
-      Access auth(@HeaderParam(STORAGE_USER) String user, @HeaderParam(STORAGE_PASS) String key);
+      Access auth(@BinderParam(TempAuthBinder.class) Credentials credentials);
    }
 
    static final class AdaptTempAuthResponseToAccess
@@ -153,7 +173,7 @@ public final class SwiftAuthenticationModule extends KeystoneAuthenticationModul
       public AdaptTempAuthResponseToAccess setContext(HttpRequest request) {
          String host = request.getEndpoint().getHost();
          this.host = host;
-         this.username = request.getFirstHeaderOrNull(STORAGE_USER);
+	 this.username = request.getFirstHeaderOrNull(SwiftAuthenticationModule.getIdentityHeaderName());
          return this;
       }
    }
