@@ -21,7 +21,8 @@ import static org.jclouds.http.Uris.uriBuilder;
 import static org.jclouds.openstack.v2_0.ServiceType.OBJECT_STORE;
 import static org.jclouds.openstack.v2_0.reference.AuthHeaders.AUTH_TOKEN;
 import static org.jclouds.rest.config.BinderUtils.bindHttpApi;
-
+import static org.jclouds.openstack.swift.v1.reference.TempAuthHeaders.STORAGE_URL;
+import static org.jclouds.openstack.swift.v1.reference.TempAuthHeaders.TEMP_AUTH_HEADER_USER;
 
 import java.io.Closeable;
 import java.net.URI;
@@ -64,25 +65,11 @@ import com.google.inject.name.Named;
  * in {@code auth/v1.0/}.
  */
 public final class SwiftAuthenticationModule extends KeystoneAuthenticationModule {
-   public static final String TEMP_AUTH_HEADER_USER = "jclouds.swift.tempAuth.headerUser";
-   public static final String TEMP_AUTH_HEADER_PASS = "jclouds.swift.tempAuth.headerPass";
-
-   @com.google.inject.Inject(optional = true)
-   @Named(TEMP_AUTH_HEADER_USER)
-   private static String identityHeaderNameUser = "X-Storage-User";
-
-   @com.google.inject.Inject(optional = true)
-   @Named(TEMP_AUTH_HEADER_PASS)
-   private static String identityHeaderNamePass = "X-Storage-Pass";
-
-   private static final String STORAGE_URL = "X-Storage-Url";
-
    @Override
    protected void configure() {
       super.configure();
       bindHttpApi(binder(), AuthenticationApi.class);
       bindHttpApi(binder(), TempAuthApi.class);
-      requestStaticInjection(SwiftAuthenticationModule.class);
    }
 
    @Override protected Map<String, Function<Credentials, Access>> authenticationMethods(Injector i) {
@@ -91,14 +78,6 @@ public final class SwiftAuthenticationModule extends KeystoneAuthenticationModul
                          .put("tempAuthCredentials", i.getInstance(TempAuth.class)).build();
    }
    
-   public static String getIdentityHeaderName(){
-       return identityHeaderNameUser;
-   }
-
-   public static String getIdentityHeaderPass(){
-       return identityHeaderNamePass;
-   }
-
    static final class TempAuth implements Function<Credentials, Access> {
       private final TempAuthApi delegate;
 
@@ -123,6 +102,10 @@ public final class SwiftAuthenticationModule extends KeystoneAuthenticationModul
 
    static final class AdaptTempAuthResponseToAccess
          implements Function<HttpResponse, Access>, InvocationContext<AdaptTempAuthResponseToAccess> {
+
+      @Inject
+      @Named(TEMP_AUTH_HEADER_USER)
+      private String identityHeaderNameUser;
 
       private final String apiVersion;
 
@@ -173,7 +156,7 @@ public final class SwiftAuthenticationModule extends KeystoneAuthenticationModul
       public AdaptTempAuthResponseToAccess setContext(HttpRequest request) {
          String host = request.getEndpoint().getHost();
          this.host = host;
-	 this.username = request.getFirstHeaderOrNull(SwiftAuthenticationModule.getIdentityHeaderName());
+	 this.username = request.getFirstHeaderOrNull(identityHeaderNameUser);
          return this;
       }
    }

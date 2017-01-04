@@ -18,23 +18,38 @@ package org.jclouds.openstack.swift.v1.binders;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static org.jclouds.openstack.swift.v1.reference.TempAuthHeaders.TEMP_AUTH_HEADER_USER;
+import static org.jclouds.openstack.swift.v1.reference.TempAuthHeaders.TEMP_AUTH_HEADER_PASS;
 
 import org.jclouds.domain.Credentials;
 import org.jclouds.http.HttpRequest;
-import org.jclouds.openstack.swift.v1.config.SwiftAuthenticationModule;
 import org.jclouds.rest.Binder;
+
+import com.google.inject.Inject;
+import com.google.inject.name.Named;
 
 /**
  * Binder to the tempAuthAuthentication
  *
  */
-public   final class TempAuthBinder implements Binder{
+public final class TempAuthBinder implements Binder{
+   @Inject
+   @Named(TEMP_AUTH_HEADER_USER)
+   private String identityHeaderNameUser;
+
+   @Inject
+   @Named(TEMP_AUTH_HEADER_PASS)
+   private String identityHeaderNamePass;
+
+
+
+
    @Override 
    public <R extends HttpRequest> R bindToRequest(R request, Object input) {
       checkNotNull(request, "request");
       checkArgument(input instanceof Credentials, "input must be a non-null org.jclouds.domain.Credentials");
-      return (R) request.toBuilder().replaceHeader(SwiftAuthenticationModule.getIdentityHeaderName(), ((Credentials) input).identity)
-	      		.replaceHeader(SwiftAuthenticationModule.getIdentityHeaderPass(), ((Credentials) input).credential).build();
+      return (R) request.toBuilder().replaceHeader(identityHeaderNameUser, ((Credentials) input).identity)
+	      		.replaceHeader(identityHeaderNamePass, ((Credentials) input).credential).build();
    }
 }
 

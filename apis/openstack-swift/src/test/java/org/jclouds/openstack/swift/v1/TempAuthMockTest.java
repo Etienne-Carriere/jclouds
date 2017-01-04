@@ -28,7 +28,7 @@ import java.util.Properties;
 
 import org.jclouds.ContextBuilder;
 import org.jclouds.concurrent.config.ExecutorServiceModule;
-import org.jclouds.openstack.swift.v1.config.SwiftAuthenticationModule;
+import org.jclouds.openstack.swift.v1.reference.TempAuthHeaders;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -44,19 +44,23 @@ public class TempAuthMockTest {
    private MockWebServer swiftServer;
    private MockWebServer tempAuthServer;
 
+   public void testTempAuthRequestWithCustomHeader() throws Exception {
+     final String headerName = "X-Auth-User";
+     final String headerPass = "X-Auth-Pass";
+     Properties overrides = new Properties();
+     overrides.setProperty(TempAuthHeaders.TEMP_AUTH_HEADER_USER , headerName);
+     overrides.setProperty(TempAuthHeaders.TEMP_AUTH_HEADER_PASS , headerPass);
+     // with specific Header Name values
+     test(overrides, headerName, headerPass);
+   }
 
    public void testTempAuthRequest() throws Exception {
-     Properties overrides = null;
+     Properties overrides = new Properties();
      // with default values
-     test(overrides);
-     overrides = new Properties();
-     overrides.setProperty(SwiftAuthenticationModule.TEMP_AUTH_HEADER_USER , "X-Auth-User");
-     overrides.setProperty(SwiftAuthenticationModule.TEMP_AUTH_HEADER_PASS , "X-Auth-Pass");
-     // with specific Header Name values
-     test(overrides);
-   }
+     test(overrides, "X-Storage-User", "X-Storage-Pass");
+  }
    
-   private void test(Properties overrides) throws Exception{
+   private void test(Properties overrides, String identityHeaderName, String identityHeaderPass) throws Exception{
        tempAuthServer.enqueue(new MockResponse().setResponseCode(204)
             .addHeader("X-Auth-Token", "token")
             .addHeader("X-Storage-Url", swiftServer.getUrl("").toString()));
@@ -72,8 +76,8 @@ public class TempAuthMockTest {
 
       RecordedRequest auth = tempAuthServer.takeRequest();
       assertEquals(auth.getMethod(), "GET");
-      assertEquals(auth.getHeader(SwiftAuthenticationModule.getIdentityHeaderName()), "user");
-      assertEquals(auth.getHeader(SwiftAuthenticationModule.getIdentityHeaderPass()), "password");
+      assertEquals(auth.getHeader(identityHeaderName), "user");
+      assertEquals(auth.getHeader(identityHeaderPass), "password");
 
       // list request went to the destination specified in X-Storage-Url.
       RecordedRequest listContainers = swiftServer.takeRequest();
@@ -84,9 +88,6 @@ public class TempAuthMockTest {
    }
 
    private SwiftApi api(String authUrl, Properties overrides) throws IOException {
-      if (overrides == null){
-         overrides = new Properties();
-      }
       overrides.setProperty(CREDENTIAL_TYPE, "tempAuthCredentials");
       return ContextBuilder.newBuilder(new SwiftApiMetadata())
             .credentials("user", "password")
