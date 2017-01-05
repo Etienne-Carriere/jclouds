@@ -103,17 +103,16 @@ public final class SwiftAuthenticationModule extends KeystoneAuthenticationModul
    static final class AdaptTempAuthResponseToAccess
          implements Function<HttpResponse, Access>, InvocationContext<AdaptTempAuthResponseToAccess> {
 
-      @Inject
-      @Named(TEMP_AUTH_HEADER_USER)
-      private String identityHeaderNameUser;
+      private final String identityHeaderNameUser;
 
       private final String apiVersion;
 
       private String host;
       private String username;
 
-      @Inject AdaptTempAuthResponseToAccess(@ApiVersion String apiVersion) {
+      @Inject AdaptTempAuthResponseToAccess(@ApiVersion String apiVersion, @Named(TEMP_AUTH_HEADER_USER) String identityHeaderNameUser) {
          this.apiVersion = apiVersion;
+         this.identityHeaderNameUser = identityHeaderNameUser;
       }
 
       @Override public Access apply(HttpResponse from) {
@@ -156,7 +155,7 @@ public final class SwiftAuthenticationModule extends KeystoneAuthenticationModul
       public AdaptTempAuthResponseToAccess setContext(HttpRequest request) {
          String host = request.getEndpoint().getHost();
          this.host = host;
-	 this.username = request.getFirstHeaderOrNull(identityHeaderNameUser);
+         this.username = request.getFirstHeaderOrNull(identityHeaderNameUser);
          return this;
       }
    }

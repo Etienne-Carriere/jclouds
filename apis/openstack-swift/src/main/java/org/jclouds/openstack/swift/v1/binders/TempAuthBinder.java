@@ -33,16 +33,14 @@ import com.google.inject.name.Named;
  *
  */
 public final class TempAuthBinder implements Binder{
-   @Inject
-   @Named(TEMP_AUTH_HEADER_USER)
-   private String identityHeaderNameUser;
+   private final String identityHeaderNameUser;
+   private final String identityHeaderNamePass;
 
    @Inject
-   @Named(TEMP_AUTH_HEADER_PASS)
-   private String identityHeaderNamePass;
-
-
-
+   TempAuthBinder(@Named(TEMP_AUTH_HEADER_USER) String identityHeaderNameUser, @Named(TEMP_AUTH_HEADER_PASS) String identityHeaderNamePass) {
+      this.identityHeaderNameUser = identityHeaderNameUser;
+      this.identityHeaderNamePass = identityHeaderNamePass;
+   }
 
    @Override 
    public <R extends HttpRequest> R bindToRequest(R request, Object input) {
